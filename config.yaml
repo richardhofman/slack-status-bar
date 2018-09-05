@@ -51,5 +51,40 @@ remote_locations:
     status_text: Working from Philz Coffee
     status_emoji: ":philz:"
 
+statuses:
+    wfh:
+      icon: icons/house_with_garden.png
+      slack_icon_name: ':house_with_garden:'
+      text: Working from Home
+    wfr:
+      icon: null
+      slack_icon_name: null
+      text: Working Remotely
+    lunch:
+      icon: icons/knife_fork_plate.png
+      slack_icon_name: ':knife_fork_plate:'
+      text: Out for Lunch
+    meeting:
+      icon: icons/spiral_calendar_pad.png
+      slack_icon_name: ':spiral_calendar_pad:'
+      text: In a Meeting
+    away:
+      icon: icons/large_red_circle.png
+      slack_icon_name: ':large_red_circle:'
+      text: Away
+    commuting:
+      icon: icons/bus.png
+      slack_icon_name: ':bus:'
+      text: Commuting
+    sick:
+      icon: icons/face_with_thermometer.png
+      slack_icon_name: ':face_with_thermometer:'
+      text: Out Sick
+    vacation:
+      icon: icons/palm_tree.png
+      slack_icon_name: ':palm_tree:'
+      text: Vacationing
+
+
 # Whether or not debug mode is on.
 debug: false

@@ -11,61 +11,32 @@ import requests
 import rumps
 import yaml
 
-
 APP_TITLE = 'Slack Status'
 APP_ICON = os.path.join('icons', 'Slack_Icon.icns')
-LOCATION = 'Location'
-AUTO = 'Auto'
-IN_MEETING = 'In a Meeting'
-COMMUTING = 'Commuting'
-OUT_SICK = 'Out Sick'
-VACATIONING = 'Vacationing'
-WORKING_REMOTELY = 'Working Remotely'
-AWAY = 'Away'
 PREFERENCES = 'Preferences...'
-
+AUTO = "Auto"
 
 class SlackStatusBarApp(rumps.App):
     def __init__(self, config):
         super(SlackStatusBarApp, self).__init__(APP_TITLE, icon=APP_ICON)
+        
         self.config = config
-
-        self.location_menu_item = rumps.MenuItem(LOCATION)
-        self.location_menu_item.set_callback(self.no_op_callback)
-        self.menu.add(self.location_menu_item)
-
-        self.menu.add(None)
+        self.statuses = config['statuses']
+        self.status_menuitems = {}
 
         self.auto_menu_item = rumps.MenuItem(AUTO)
         self.auto_menu_item.state = True
         self.menu.add(self.auto_menu_item)
 
-        self.meeting_menu = rumps.MenuItem(IN_MEETING)
-        self.meeting_menu.icon = os.path.join('icons',
-                                              'spiral_calendar_pad.png')
-        self.menu.add(self.meeting_menu)
+        # Begin statuses submenu
+        self.statuses_submenu = rumps.MenuItem("Statuses")
+        for status, info in self.statuses.items():
+            menu_item = rumps.MenuItem(info['text'], icon=info['icon'])
+            self.status_menuitems[status] = menu_item
+            self.statuses_submenu.add(menu_item)
+        self.menu.add(self.statuses_submenu)
 
-        self.commute_menu = rumps.MenuItem(COMMUTING)
-        self.commute_menu.icon = os.path.join('icons', 'bus.png')
-        self.menu.add(self.commute_menu)
-
-        self.sick_menu = rumps.MenuItem(OUT_SICK)
-        self.sick_menu.icon = os.path.join('icons',
-                                           'face_with_thermometer.png')
-        self.menu.add(self.sick_menu)
-
-        self.vacation_menu = rumps.MenuItem(VACATIONING)
-        self.vacation_menu.icon = os.path.join('icons', 'palm_tree.png')
-        self.menu.add(self.vacation_menu)
-
-        self.remote_menu = rumps.MenuItem(WORKING_REMOTELY)
-        self.remote_menu.icon = os.path.join('icons', 'house_with_garden.png')
-        self.menu.add(self.remote_menu)
-
-        self.away_menu = rumps.MenuItem(AWAY)
-        self.away_menu.icon = os.path.join('icons', 'large_red_circle.png')
-        self.menu.add(self.away_menu)
-
+        # End statuses submenu
         self.menu.add(None)
 
         self.pref_menu = rumps.MenuItem(PREFERENCES)
@@ -86,7 +57,7 @@ class SlackStatusBarApp(rumps.App):
                         NSDate.date(), NSDate.date(), [calendar])
                 event = store.eventsWithPredicate_(pred)
                 if event:
-                    self.set_vacation(None, event._.title[0])
+                    self.set_status_by_name("vacation", event._.title[0])
                     return
 
         # Check if in a meeting
@@ -97,7 +68,7 @@ class SlackStatusBarApp(rumps.App):
                         NSDate.date(), NSDate.date(), [calendar])
                 event = store.eventsWithPredicate_(pred)
                 if event:
-                    self.set_meeting(None, event._.title[0])
+                    self.set_status_by_name("meeting", event._.title[0])
                     return
 
         # Check if working remotely
@@ -138,12 +109,8 @@ class SlackStatusBarApp(rumps.App):
             self.set_presence_auto(sender)
 
             # Disable all callbacks (grays out menu items)
-            self.meeting_menu.set_callback(None)
-            self.commute_menu.set_callback(None)
-            self.sick_menu.set_callback(None)
-            self.vacation_menu.set_callback(None)
-            self.remote_menu.set_callback(None)
-            self.away_menu.set_callback(None)
+            for menuitem in self.status_menuitems.values():
+                menuitem.set_callback(None)
 
             # Enable timer
             for timer in rumps.timers():
@@ -156,36 +123,28 @@ class SlackStatusBarApp(rumps.App):
                 timer.stop()
 
             # Enable all callbacks
-            self.meeting_menu.set_callback(self.set_meeting)
-            self.commute_menu.set_callback(self.set_commute)
-            self.sick_menu.set_callback(self.set_sick)
-            self.vacation_menu.set_callback(self.set_vacation)
-            self.remote_menu.set_callback(self.set_remote)
-            self.away_menu.set_callback(self.set_presence_away)
+            for menuitem in self.status_menuitems.values():
+                menuitem.set_callback(self.set_status)
+
+    def reverse_lookup_menuitem(self, target):
+        for status, item in self.status_menuitems.items():
+            if target.title == item.title:
+                return status
 
     def unset_status(self, sender):
         self._send_slack_status('', '')
-        self.set_location('Work')
 
-    def set_meeting(self, sender, meeting_title=''):
-        if self.config['meeting_title'] is True:
-            status_text = IN_MEETING + ': ' + meeting_title
+    def set_status(self, sender):
+        status = self.reverse_lookup_menuitem(sender)
+        self.set_status_by_name(status)
+    
+    def set_status_by_name(self, status, extra_message=None):
+        if self.config['meeting_title'] is True and extra_message != None:
+            status_message = self.statuses[status]['text'] + ': ' + extra_message
         else:
-            status_text = IN_MEETING
-        self._send_slack_status(status_text, ':spiral_calendar_pad:')
-
-    def set_commute(self, sender):
-        self._send_slack_status(COMMUTING, ':bus:')
-
-    def set_sick(self, sender):
-        self._send_slack_status(OUT_SICK, ':face_with_thermometer:')
-
-    def set_vacation(self, sender, vacation_title=''):
-        if self.config['meeting_title'] is True:
-            status_text = VACATIONING + ': ' + vacation_title
-        else:
-            status_text = VACATIONING
-        self._send_slack_status(status_text, ':palm_tree:')
+            status_message = self.statuses[status]["text"]
+        status_icon = self.statuses[status]["slack_icon_name"]
+        self._send_slack_status(status_message, status_icon)
 
     def set_remote(self, sender, ssid=None):
         if ssid and 'remote_locations' in self.config:
@@ -193,10 +152,9 @@ class SlackStatusBarApp(rumps.App):
                 if location['ssid'] == ssid:
                     self._send_slack_status(location['status_text'],
                                             location['status_emoji'])
-                    self.set_location(location['location'])
                     return
-        self._send_slack_status(WORKING_REMOTELY, ':house_with_garden:')
-        self.set_location('Unknown')
+        else:
+            self.set_status_by_name("wfr")
 
     def set_presence_auto(self, sender):
         url = 'https://slack.com/api/users.setPresence'
@@ -232,12 +190,6 @@ class SlackStatusBarApp(rumps.App):
         if response.clicked and response.text:
             self.config['token'] = response.text
 
-    def set_location(self, location):
-        for key, menu_item in self.menu.iteritems():
-            if key == LOCATION:
-                menu_item.title = LOCATION + ': ' + location
-
-
 def _signal_handler(signal, frame):
     rumps.quit_application()
 
@@ -261,7 +213,6 @@ def main():
 
     # Startup application
     SlackStatusBarApp(config).run()
-
 
 if __name__ == "__main__":
     sys.exit(main())
