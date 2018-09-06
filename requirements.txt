@@ -2,3 +2,4 @@ pyobjc
 PyYAML
 requests
 rumps
+slackclient

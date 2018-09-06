@@ -2,7 +2,9 @@
 
 # Obtain a token using the instructions found here:
 # https://api.slack.com/custom-integrations/legacy-tokens
-token:
+legacy_token:
+#client_id:
+#client_secret:
 
 # Wireless SSID for your work location. Used to detect whether working
 # remotely. Any value other than the following is considered remote to work.
